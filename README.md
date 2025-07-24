@@ -28,7 +28,7 @@ Serveur Node.js/TypeScript pour l'application VMix Datasource. Ce serveur permet
 - `npm run build` - Compiler le TypeScript
 - `npm start` - Démarrer le serveur en production
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Health Check
 - `GET /health` - Vérifier l'état du serveur
