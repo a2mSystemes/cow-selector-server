@@ -1,15 +1,15 @@
 # VMix Datasource Server
 
-## 📋 Description
+## Description
 Serveur Node.js/TypeScript pour l'application VMix Datasource. Ce serveur permet de gérer l'upload et la lecture de fichiers Excel pour l'intégration avec VMix.
 
-## 🛠️ Technologies utilisées
+## Technologies utilisées
 - **Node.js** avec **TypeScript**
 - **Express.js** pour l'API REST
 - **Multer** pour l'upload de fichiers
 - **XLSX** pour la lecture des fichiers Excel
 
-## 🚀 Installation
+## Installation
 
 1. **Cloner le repository**
    ```bash
@@ -22,7 +22,7 @@ Serveur Node.js/TypeScript pour l'application VMix Datasource. Ce serveur permet
    npm install
    ```
 
-## 🔧 Scripts disponibles
+## Scripts disponibles
 
 - `npm run dev` - Démarrer le serveur en mode développement avec watch
 - `npm run build` - Compiler le TypeScript
@@ -41,7 +41,7 @@ Serveur Node.js/TypeScript pour l'application VMix Datasource. Ce serveur permet
 - `GET /api/v1/status` - Status détaillé du serveur
 - `DELETE /api/v1/reset` - Reset de la base de données
 
-## 🏗️ Structure du projet
+## Structure du projet
 
 ```
 src/
@@ -57,7 +57,7 @@ src/
 └── server.ts          # Point d'entrée du serveur
 ```
 
-## 📄 Configuration
+## Configuration
 
 Le serveur écoute par défaut sur le port **3000**.
 
@@ -72,7 +72,7 @@ NODE_ENV=development
 
 Ce serveur est conçu pour fonctionner avec l'application client Angular VMix Datasource.
 
-## 🐛 Développement
+## Développement
 
 Pour contribuer au projet :
 1. Fork le repository
@@ -81,9 +81,6 @@ Pour contribuer au projet :
 4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
 5. Créer une Pull Request
 
-## 📝 License
+## License
 
-[À définir]
 
----
-*Projet VMix Datasource - Serveur Backend*
