@@ -2,24 +2,37 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import compression from 'compression';
 import apiRoutes from './routes/api';
+import { setupDevelopmentProxy } from './middleware/dev-proxy';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Middleware de sécurité avec CSP personnalisé pour permettre les scripts nécessaires
+// Compression (sauf en développement avec proxy)
+if (!isDevelopment) {
+  app.use(compression());
+}
+
+// Middleware de sécurité avec CSP adapté pour Angular
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'", // Permet les scripts inline
-        "https://cdnjs.cloudflare.com" // Permet XLSX depuis cdnjs
+        "'unsafe-inline'", // Pour Angular et hot reload
+        "'unsafe-eval'", // Pour Angular en développement
+        "https://cdnjs.cloudflare.com",
+        ...(isDevelopment ? ["http://localhost:4200", "ws://localhost:4200"] : [])
       ],
-      styleSrc: ["'self'", "'unsafe-inline'"], // Permet les styles inline
+      styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        ...(isDevelopment ? ["http://localhost:4200", "ws://localhost:4200", "ws://localhost:3000"] : [])
+      ],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -28,86 +41,128 @@ app.use(helmet({
   }
 }));
 
-// CORS pour permettre les requêtes depuis le client web
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:4200', // URL Angular par défaut
-  credentials: true
-}));
+// CORS uniquement en développement (pas nécessaire avec proxy)
+if (isDevelopment) {
+  app.use(cors({
+    origin: ['http://localhost:3000', 'http://localhost:4200'],
+    credentials: true
+  }));
+}
 
 // Parsing JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir les fichiers statiques
-app.use('/static', express.static(path.join(__dirname, '../static')));
 
-// Routes API
 app.use('/api/v1', apiRoutes);
 
-// Route de santé
+// Route de santé (monitoring)
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    service: 'VMix Server'
+    service: 'VMix Server',
+    environment: process.env.NODE_ENV || 'development',
+    angular: isDevelopment ? 'dev-server' : 'static-files'
   });
 });
 
-// Route de test pour servir generator.html
-app.get('/test/status', (req, res) => {
-  res.sendFile(path.join(__dirname, '../static/status.html'));
-});
-// Route de test pour servir generator.html
-app.get('/test/generator', (req, res) => {
-  res.sendFile(path.join(__dirname, '../static/generator.html'));
-});
 
-// Route racine
-app.get('/', (req, res) => {
-  res.json({
-    message: 'VMix Server API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      testStatus: '/test/status',
-      testGenerator: '/test/generator',
-      upload: 'POST /api/v1/upload',
-      elements: 'GET /api/v1/elements',
-      select: 'PUT /api/v1/element/select/:id',
-      selected: 'GET /api/v1/element/selected',
-      status: 'GET /api/v1/status',
-      reset: 'DELETE /api/v1/reset'
+if (isDevelopment) {
+  console.log('🔧 Mode développement activé');
+  
+  // Configurer le proxy vers ng serve (hot reload)
+  const proxyEnabled = setupDevelopmentProxy(app);
+  
+  if (!proxyEnabled) {
+    console.log('⚠️  Proxy Angular non disponible, mode fallback');
+    app.get('*', (req, res) => {
+      res.status(503).json({
+        error: 'Development server not ready',
+        message: 'Please run: cd client && ng serve'
+      });
+    });
+  }
+  
+} else {
+  console.log('🚀 Mode production activé');
+  
+  // Servir les fichiers statiques Angular avec cache
+  app.use(express.static(path.join(__dirname, '../client/dist'), {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      // Pas de cache pour index.html (SPA routing)
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
+
+  // SPA Fallback - Toutes les routes non-API → Angular
+  app.get('*', (req, res) => {
+    const indexPath = path.join(__dirname, '../client/dist/index.html');
+    
+    // Vérifier que le build Angular existe
+    if (require('fs').existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(503).json({
+        error: 'Angular app not built',
+        message: 'Run: npm run build:client',
+        timestamp: new Date().toISOString()
+      });
     }
   });
-});
+}
 
-// Middleware de gestion d'erreur global
+// ====== MIDDLEWARE D'ERREUR GLOBAL ======
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('❌ Erreur serveur:', err);
   
+  // Ne pas exposer les détails d'erreur en production
   res.status(err.status || 500).json({
     success: false,
-    error: err.message || 'Erreur serveur interne',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: isDevelopment ? err.message : 'Erreur serveur interne',
+    timestamp: new Date().toISOString(),
+    ...(isDevelopment && { 
+      stack: err.stack,
+      details: err 
+    })
   });
 });
 
-// Gestion des routes non trouvées
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Route non trouvée'
-  });
-});
-
-// Démarrage du serveur
+// ====== DÉMARRAGE DU SERVEUR ======
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur VMix démarré sur le port ${PORT}`);
-  console.log(`📊 API disponible à: http://localhost:${PORT}/api/v1`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-  console.log(`🎯 Server Status: http://localhost:${PORT}/test/status`);
-  console.log(`🎯 Test Generator: http://localhost:${PORT}/test/generator`);
-  console.log(`📝 Documentation: http://localhost:${PORT}/`);
+  console.log('\n' + '='.repeat(60));
+  console.log(`🚀 VMix Server démarré sur le port ${PORT}`);
+  console.log('='.repeat(60));
+  
+  if (isDevelopment) {
+    console.log('📱 Application (dev): http://localhost:3000');
+    console.log('🔧 Hot reload: Activé via proxy Angular');
+    console.log('🅰️  Angular direct: http://localhost:4200 (auto-démarré)');
+  } else {
+    console.log('📱 Application: http://localhost:3000');
+    console.log('📦 Fichiers statiques: Servis par Express');
+  }
+  
+  console.log('📊 API: http://localhost:3000/api/v1');
+  console.log('🏥 Health: http://localhost:3000/health');
+  console.log('='.repeat(60) + '\n');
+  
+  // Afficher les routes disponibles
+  console.log('📍 Routes disponibles:');
+  console.log('  🏠 GET  /                 → Application Angular');
+  console.log('  📊 GET  /status           → Page de statut');
+  console.log('  📋 GET  /elements         → Liste des éléments');
+  console.log('  📤 GET  /upload           → Upload de fichiers');
+  console.log('  🔧 GET  /api/v1/*         → API REST');
+  console.log('  💓 GET  /health           → Health check');
+  console.log('');
 });
 
 export default app;

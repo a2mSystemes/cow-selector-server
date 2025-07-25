@@ -15,10 +15,14 @@ export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   error?: string;
+  code?: string;
 }
 
 export interface UploadResponse {
   filename: string;
   rowCount: number;
   columns: string[];
+  fileSize: number | null;
+  mimeType: string | null;
+  metadata: any;
 }

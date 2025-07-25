@@ -67,6 +67,10 @@ uploads/
 # Backup files
 *.bak
 *.backup
+backup-*/
+package.json.backup
+package-lock.json.backup
+node_modules.backup/
 
 # Lock files (garder package-lock.json mais excluer yarn.lock si non utilisé)
 yarn.lock
