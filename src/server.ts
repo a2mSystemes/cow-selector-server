@@ -15,7 +15,7 @@ if (!isDevelopment) {
   app.use(compression());
 }
 
-// Middleware de sécurité avec CSP adapté pour Angular
+// Middleware de sécurité avec CSP adapté pour Angular (ressources locales)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -24,16 +24,18 @@ app.use(helmet({
         "'self'",
         "'unsafe-inline'",
         "'unsafe-eval'",
-        "https://cdnjs.cloudflare.com",
+        // Plus de CDN externe - tout est local
         ...(isDevelopment ? ["http://localhost:4200", "ws://localhost:4200"] : [])
       ],
+      scriptSrcAttr: ["'unsafe-inline'"], // ✅ Pour les gestionnaires d'événements inline
       styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrcAttr: ["'unsafe-inline'"], // ✅ Pour les styles inline
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: [
         "'self'",
         ...(isDevelopment ? ["http://localhost:4200", "ws://localhost:4200", "ws://localhost:3000"] : [])
       ],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", "data:"], // Pour les polices locales
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"]
@@ -86,11 +88,27 @@ if (isDevelopment) {
 } else {
   console.log('🚀 Mode production activé');
   
-  app.use(express.static(path.join(__dirname, '../client/dist'), {
+  // ✅ Configuration express.static avec types MIME explicites
+  app.use(express.static(path.join(__dirname, '../client/dist/prod/vmix-client/browser'), {
     maxAge: '1y',
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
+      // ✅ Configuration des types MIME corrects
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (filePath.endsWith('.mjs')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      } else if (filePath.endsWith('.woff2')) {
+        res.setHeader('Content-Type', 'font/woff2');
+      } else if (filePath.endsWith('.woff')) {
+        res.setHeader('Content-Type', 'font/woff');
+      } else if (filePath.endsWith('.ttf')) {
+        res.setHeader('Content-Type', 'font/ttf');
+      }
+      
       // Pas de cache pour index.html (SPA routing)
       if (filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
