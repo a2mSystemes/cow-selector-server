@@ -19,9 +19,6 @@ export class DatabaseService {
     return DatabaseService.instance;
   }
 
-  /**
-   * Importe les données depuis Excel
-   */
   importData(elements: ExcelRow[], filename: string): void {
     this.database.elements = elements;
     this.database.selectedElement = null; // Reset sélection
@@ -31,16 +28,10 @@ export class DatabaseService {
     console.log(`💾 Base de données mise à jour: ${elements.length} éléments importés`);
   }
 
-  /**
-   * Récupère tous les éléments
-   */
   getAllElements(): ExcelRow[] {
     return this.database.elements;
   }
 
-  /**
-   * Sélectionne un élément par ID
-   */
   selectElement(id: string): ExcelRow | null {
     const element = this.database.elements.find(el => el.id === id);
     if (element) {
@@ -51,16 +42,11 @@ export class DatabaseService {
     return null;
   }
 
-  /**
-   * Récupère l'élément actuellement sélectionné
-   */
   getSelectedElement(): ExcelRow | null {
     return this.database.selectedElement;
   }
 
-  /**
-   * Récupère les infos de la base
-   */
+
   getDatabaseInfo() {
     return {
       elementCount: this.database.elements.length,
@@ -73,9 +59,6 @@ export class DatabaseService {
     };
   }
 
-  /**
-   * Reset de la base
-   */
   reset(): void {
     this.database = {
       elements: [],

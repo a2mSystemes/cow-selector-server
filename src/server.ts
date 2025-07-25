@@ -22,8 +22,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'", // Pour Angular et hot reload
-        "'unsafe-eval'", // Pour Angular en développement
+        "'unsafe-inline'",
+        "'unsafe-eval'",
         "https://cdnjs.cloudflare.com",
         ...(isDevelopment ? ["http://localhost:4200", "ws://localhost:4200"] : [])
       ],
@@ -41,7 +41,6 @@ app.use(helmet({
   }
 }));
 
-// CORS uniquement en développement (pas nécessaire avec proxy)
 if (isDevelopment) {
   app.use(cors({
     origin: ['http://localhost:3000', 'http://localhost:4200'],
@@ -56,7 +55,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use('/api/v1', apiRoutes);
 
-// Route de santé (monitoring)
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -87,7 +86,6 @@ if (isDevelopment) {
 } else {
   console.log('🚀 Mode production activé');
   
-  // Servir les fichiers statiques Angular avec cache
   app.use(express.static(path.join(__dirname, '../client/dist'), {
     maxAge: '1y',
     etag: true,
@@ -104,14 +102,14 @@ if (isDevelopment) {
 
   // SPA Fallback - Toutes les routes non-API → Angular
   app.get('*', (req, res) => {
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    
+    const indexPath = path.join(__dirname, '../client/dist/prod/vmix-client/browser/index.html');
+    console.log(`Checking Angular build at ${indexPath}`);
     // Vérifier que le build Angular existe
     if (require('fs').existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
       res.status(503).json({
-        error: 'Angular app not built',
+        error: `Angular app not built at ${indexPath}`,
         message: 'Run: npm run build:client',
         timestamp: new Date().toISOString()
       });
@@ -119,11 +117,8 @@ if (isDevelopment) {
   });
 }
 
-// ====== MIDDLEWARE D'ERREUR GLOBAL ======
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('❌ Erreur serveur:', err);
-  
-  // Ne pas exposer les détails d'erreur en production
   res.status(err.status || 500).json({
     success: false,
     error: isDevelopment ? err.message : 'Erreur serveur interne',
@@ -135,33 +130,28 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// ====== DÉMARRAGE DU SERVEUR ======
 app.listen(PORT, () => {
   console.log('\n' + '='.repeat(60));
-  console.log(`🚀 VMix Server démarré sur le port ${PORT}`);
+  console.log(`VMix Server démarré sur le port ${PORT}`);
   console.log('='.repeat(60));
   
   if (isDevelopment) {
-    console.log('📱 Application (dev): http://localhost:3000');
-    console.log('🔧 Hot reload: Activé via proxy Angular');
-    console.log('🅰️  Angular direct: http://localhost:4200 (auto-démarré)');
+    console.log('Application (dev): http://localhost:3000');
+    console.log('Hot reload: Activé via proxy Angular');
+    console.log('Angular direct: http://localhost:4200 (auto-démarré)');
   } else {
-    console.log('📱 Application: http://localhost:3000');
-    console.log('📦 Fichiers statiques: Servis par Express');
+    console.log('Application: http://localhost:3000');
   }
   
-  console.log('📊 API: http://localhost:3000/api/v1');
-  console.log('🏥 Health: http://localhost:3000/health');
-  console.log('='.repeat(60) + '\n');
+  console.log('API: http://localhost:3000/api/v1');
+  console.log('Health: http://localhost:3000/health');
   
-  // Afficher les routes disponibles
-  console.log('📍 Routes disponibles:');
-  console.log('  🏠 GET  /                 → Application Angular');
-  console.log('  📊 GET  /status           → Page de statut');
-  console.log('  📋 GET  /elements         → Liste des éléments');
-  console.log('  📤 GET  /upload           → Upload de fichiers');
-  console.log('  🔧 GET  /api/v1/*         → API REST');
-  console.log('  💓 GET  /health           → Health check');
+  console.log('GET  /                 →      Application Angular');
+  console.log('GET  /status           →      Page de statut');
+  console.log('GET  /elements         →      Liste des éléments');
+  console.log('GET  /upload           →      Upload de fichiers');
+  console.log('REST /api/v1/*         →      API REST');
+  console.log('GET  /health           →      Health check');
   console.log('');
 });
 
